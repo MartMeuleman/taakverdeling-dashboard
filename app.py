@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from datetime import datetime, timedelta
 
 # Vaste medewerkerslijst
 medewerkers = ['Vita', 'Natalia', 'Hanne', 'Roos', 'Andre', 'Yuliia', 'Romaniia', 'Lesiia', 'Julian', 'Brian',
@@ -22,7 +23,16 @@ taken = {
 }
 
 st.title('🧼 Taakverdeling Schoonmaak Dashboard')
-st.write("Selecteer aanwezige medewerkers en wijs per taak personen toe. Je krijgt per persoon te zien wat hun taken en totale werktijd zijn.")
+st.write("Selecteer aanwezige medewerkers en wijs per taak personen toe. Je krijgt per persoon te zien wat hun taken, totale werktijd en eindtijd zijn.")
+
+# Selecteer of het doordeweeks of weekend is
+moment = st.selectbox("🗓️ Welke dag is het?", ["Doordeweeks", "Weekend"])
+
+# Starttijd bepalen
+if moment == "Doordeweeks":
+    starttijd = datetime.strptime("19:30", "%H:%M")
+else:
+    starttijd = datetime.strptime("18:30", "%H:%M")
 
 # Selecteer aanwezigen
 aanwezigen = st.multiselect('✅ Wie zijn er vanavond aanwezig?', medewerkers)
@@ -39,6 +49,8 @@ if aanwezigen:
 
     if st.button('📊 Bekijk taakverdeling'):
         taak_data = []
+        werktijd_per_persoon = {}
+
         for taak, info in taak_toewijzing.items():
             duur = info['duur']
             mensen = info['personen']
@@ -49,12 +61,20 @@ if aanwezigen:
                     'Taak': taak,
                     'Tijd (min)': tijd_per_persoon
                 })
+                werktijd_per_persoon[persoon] = werktijd_per_persoon.get(persoon, 0) + tijd_per_persoon
 
         df = pd.DataFrame(taak_data)
         df_grouped = df.groupby('Medewerker').agg({
             'Taak': lambda x: ', '.join(x),
             'Tijd (min)': 'sum'
         }).reset_index()
+
+        # Voeg eindtijd toe
+        eindtijden = []
+        for _, row in df_grouped.iterrows():
+            eindtijd = (starttijd + timedelta(minutes=row['Tijd (min)'])).strftime("%H:%M")
+            eindtijden.append(eindtijd)
+        df_grouped['Eindtijd'] = eindtijden
 
         st.subheader('🧍‍♂️ Taakverdeling per persoon')
         st.dataframe(df_grouped)
@@ -63,4 +83,5 @@ if aanwezigen:
         st.download_button("⬇️ Download als CSV", csv, "taakverdeling.csv", "text/csv")
 else:
     st.info("Selecteer eerst welke medewerkers aanwezig zijn.")
+
 
